@@ -155,7 +155,7 @@ the recovery tools above.
 
 ## Tested on
 
-Besides 69 unit tests on simulated pipelines, `scpreflight` was run on the real test files that ship
+Besides 71 unit tests on simulated pipelines, `scpreflight` was run on the real test files that ship
 with Scanpy and AnnData:
 
 - 10x Genomics Cell Ranger v2 and v3 `.h5` files and `.mtx` folders, including a multi-genome file
