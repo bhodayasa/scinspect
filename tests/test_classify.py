@@ -162,3 +162,11 @@ def test_integer_dtypes(counts):
 def test_float16_storage(counts):
     st = state(s.log1p(s.normalize_total(counts)).toarray().astype(np.float16))
     assert st.kind == "log1p_normalized"
+
+
+def test_layers_none_alias_is_skipped(counts):
+    class Layers(dict):
+        pass
+
+    ad = s.make(counts, layers=Layers({None: counts, "counts": counts}))
+    assert [m.slot for m in scpreflight.check(ad).matrices] == ["X", "layers['counts']"]

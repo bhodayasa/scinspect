@@ -181,6 +181,8 @@ def from_anndata(adata: Any, source: str = "<AnnData object>") -> Dataset:
     if getattr(adata, "X", None) is not None:
         slots.append(Slot("X", adata.X))
     for k in list(getattr(adata, "layers", {}).keys()):
+        if k is None:  # anndata >= 0.13 exposes X as layers[None]
+            continue
         slots.append(Slot(f"layers['{k}']", adata.layers[k]))
     raw = getattr(adata, "raw", None)
     if raw is not None and getattr(raw, "X", None) is not None:
