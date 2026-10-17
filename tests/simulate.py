@@ -83,7 +83,7 @@ class FakeRaw:
 
 @dataclass
 class FakeAnnData:
-    """Just enough of the AnnData interface for scpreflight."""
+    """Just enough of the AnnData interface for scinspect."""
 
     X: Any
     obs_names: list[str]

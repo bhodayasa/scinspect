@@ -1,4 +1,4 @@
-"""scpreflight: find out what is really inside a single-cell dataset before you analyze it."""
+"""scinspect: find out what is really inside a single-cell dataset before you analyze it."""
 
 __version__ = "0.1.0"
 

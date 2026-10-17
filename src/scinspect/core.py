@@ -26,7 +26,7 @@ def check(
     """Inspect a single-cell dataset and report what state every matrix is in.
 
     ``data`` can be a file path (.h5ad, 10x .h5, .loom, .mtx or 10x folder, .csv/.tsv),
-    an AnnData object, or a :class:`scpreflight.readers.Dataset`.
+    an AnnData object, or a :class:`scinspect.readers.Dataset`.
     """
     if isinstance(data, (str, os.PathLike)):
         ds = read(data)

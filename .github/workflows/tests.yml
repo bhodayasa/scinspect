@@ -39,3 +39,40 @@ jobs:
             done
           fi
           exit $status
+
+  package:
+    # Build the real package, install it into a clean environment, and run the command on
+    # sample files plus real 10x / Visium / h5ad files from the Scanpy and AnnData repos.
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Build and check package
+        shell: bash
+        run: |
+          python -m pip install build twine anndata
+          python -m build
+          python -m twine check --strict dist/*
+      - name: Make sample files and fetch real test data
+        shell: bash
+        run: |
+          python ci/make_samples.py samples
+          mkdir real
+          git clone -q --depth 1 https://github.com/scverse/scanpy real/scanpy
+          git clone -q --depth 1 https://github.com/scverse/anndata real/anndata
+      - name: Install wheel into a clean environment
+        shell: bash
+        run: |
+          python -m venv clean
+          if [ -f clean/Scripts/python.exe ]; then PY=clean/Scripts/python.exe; EXE=clean/Scripts/scinspect.exe; else PY=clean/bin/python; EXE=clean/bin/scinspect; fi
+          $PY -m pip install -q dist/*.whl
+          echo "EXE=$EXE" >> $GITHUB_ENV
+      - name: Smoke test the installed command
+        shell: bash
+        run: python ci/smoke.py "$EXE" samples real

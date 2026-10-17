@@ -64,7 +64,7 @@ def render_text(report: Report, color: bool = False, width: int = 100) -> str:
 
     lines: list[str] = []
     w = textwrap.TextWrapper(width=width, subsequent_indent=" " * 6)
-    lines.append(c("bold", f"scpreflight {report.version}") + f"  {report.source}")
+    lines.append(c("bold", f"scinspect {report.version}") + f"  {report.source}")
     lines.append(
         f"{report.fmt} · {report.n_obs:,} cells × {report.n_vars:,} features"
         + (f" · checked a random sample of {report.sampled_cells:,} cells" if report.sampled_cells else "")
@@ -132,10 +132,10 @@ def _md_escape(s: str) -> str:
 
 
 def render_markdown(report: Report) -> str:
-    out = [f"# scpreflight report: `{report.source}`", ""]
+    out = [f"# scinspect report: `{report.source}`", ""]
     out.append(
         f"**{report.fmt}** · {report.n_obs:,} cells × {report.n_vars:,} features · "
-        f"sampled {report.sampled_cells:,} cells · scpreflight {report.version}"
+        f"sampled {report.sampled_cells:,} cells · scinspect {report.version}"
     )
     out += ["", f"**Verdict:** {verdict(report)}", "", "## Matrices", ""]
     out += ["| Slot | Contents | Confidence |", "|---|---|---|"]

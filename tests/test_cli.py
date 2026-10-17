@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import simulate as s
 
-from scpreflight.cli import main
+from scinspect.cli import main
 
 
 def write_csv(path, X, genes, bcs):

@@ -1,4 +1,4 @@
-"""Command line interface: ``scpreflight FILE``."""
+"""Command line interface: ``scinspect FILE``."""
 
 from __future__ import annotations
 
@@ -12,11 +12,11 @@ from .readers import ReaderError
 
 EPILOG = """\
 examples:
-  scpreflight pbmc.h5ad
-  scpreflight filtered_feature_bc_matrix/            10x folder (matrix.mtx + features + barcodes)
-  scpreflight GSE123456_counts.csv.gz
-  scpreflight data.h5ad --json > report.json
-  scpreflight data.h5ad --fail-on warn                exit 1 on warnings (for CI pipelines)
+  scinspect pbmc.h5ad
+  scinspect filtered_feature_bc_matrix/            10x folder (matrix.mtx + features + barcodes)
+  scinspect GSE123456_counts.csv.gz
+  scinspect data.h5ad --json > report.json
+  scinspect data.h5ad --fail-on warn                exit 1 on warnings (for CI pipelines)
 
 exit codes: 0 = passed, 1 = findings at or above --fail-on, 2 = could not read the file
 """
@@ -24,7 +24,7 @@ exit codes: 0 = passed, 1 = findings at or above --fail-on, 2 = could not read t
 
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(
-        prog="scpreflight",
+        prog="scinspect",
         description="Find out what is really inside a single-cell dataset: raw counts or normalized, "
         "which log base, scaled or not, gene ID problems, and which matrix to use for which tool.",
         epilog=EPILOG,
@@ -43,7 +43,7 @@ def main(argv: list[str] | None = None) -> int:
         help="exit with code 1 if any finding is at least this severe (default: error)",
     )
     p.add_argument("--no-color", action="store_true", help="disable colored output")
-    p.add_argument("--version", action="version", version=f"scpreflight {__version__}")
+    p.add_argument("--version", action="version", version=f"scinspect {__version__}")
     args = p.parse_args(argv)
     for stream in (sys.stdout, sys.stderr):  # old Windows consoles can't print ✓ / ✖
         try:
@@ -58,10 +58,10 @@ def main(argv: list[str] | None = None) -> int:
         try:
             rep = check(path, sample_cells=args.sample, seed=args.seed)
         except ReaderError as e:
-            print(f"scpreflight: {path}: {e}", file=sys.stderr)
+            print(f"scinspect: {path}: {e}", file=sys.stderr)
             return 2
         except Exception as e:  # pragma: no cover
-            print(f"scpreflight: {path}: could not read file ({type(e).__name__}: {e})", file=sys.stderr)
+            print(f"scinspect: {path}: could not read file ({type(e).__name__}: {e})", file=sys.stderr)
             return 2
         reports.append(rep)
         if level_rank(rep.worst_level) > level_rank(worst):

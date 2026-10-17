@@ -3,11 +3,11 @@ import pytest
 import scipy.sparse as sp
 import simulate as s
 
-import scpreflight
+import scinspect
 
 
 def state(X, **kw):
-    return scpreflight.check(s.make(X, **kw)).matrix("X")
+    return scinspect.check(s.make(X, **kw)).matrix("X")
 
 
 def test_raw_counts(counts):
@@ -109,7 +109,7 @@ def test_binary_peaks(counts):
 def test_all_ones_on_genes_is_shallow_counts(counts):
     B = counts.copy()
     B.data[:] = 1
-    rep = scpreflight.check(s.make(B))
+    rep = scinspect.check(s.make(B))
     assert rep.matrix("X").kind == "raw_counts"
     assert "slots.no_counts" not in {f.code for f in rep.all_findings()}
 
@@ -169,4 +169,4 @@ def test_layers_none_alias_is_skipped(counts):
         pass
 
     ad = s.make(counts, layers=Layers({None: counts, "counts": counts}))
-    assert [m.slot for m in scpreflight.check(ad).matrices] == ["X", "layers['counts']"]
+    assert [m.slot for m in scinspect.check(ad).matrices] == ["X", "layers['counts']"]

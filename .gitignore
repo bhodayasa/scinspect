@@ -5,6 +5,9 @@ __pycache__/
 .ruff_cache/
 build/
 dist/
+samples/
+real/
+clean/
 .venv/
 *.h5ad
 *.h5

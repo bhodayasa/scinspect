@@ -6,8 +6,8 @@ import pytest
 import scipy.io
 import simulate as s
 
-import scpreflight
-from scpreflight.readers import H5CSR, ReaderError, read
+import scinspect
+from scinspect.readers import H5CSR, ReaderError, read
 
 
 @pytest.fixture()
@@ -29,7 +29,7 @@ def write_10x_folder(folder, C, genes, bcs, prefix=""):
 def test_10x_folder(tmp_path, small):
     C, genes, bcs = small
     write_10x_folder(tmp_path / "tenx", C, genes, bcs)
-    rep = scpreflight.check(tmp_path / "tenx")
+    rep = scinspect.check(tmp_path / "tenx")
     assert (rep.n_obs, rep.n_vars) == (300, 500)
     assert rep.matrix("X").kind == "raw_counts"
 
@@ -46,7 +46,7 @@ def test_csv_genes_by_cells_is_transposed(tmp_path, small):
     df = pd.DataFrame(s.log1p(s.normalize_total(C)).toarray().T, index=genes, columns=bcs)
     p = tmp_path / "GSE1_norm.csv.gz"
     df.to_csv(p)
-    rep = scpreflight.check(p)
+    rep = scinspect.check(p)
     assert (rep.n_obs, rep.n_vars) == (300, 500)
     assert rep.matrix("X").kind == "log1p_normalized"
     assert any("transposed" in f.title for f in rep.findings)
@@ -56,7 +56,7 @@ def test_tsv_cells_by_genes(tmp_path, small):
     C, genes, bcs = small
     p = tmp_path / "counts.tsv"
     pd.DataFrame(C.toarray(), index=bcs, columns=genes).to_csv(p, sep="\t")
-    rep = scpreflight.check(p)
+    rep = scinspect.check(p)
     assert (rep.n_obs, rep.n_vars) == (300, 500)
 
 
@@ -69,7 +69,7 @@ def test_h5csr_row_access(small):
 
 
 def test_legacy_compound_index():
-    from scpreflight.readers import _h5_columns, _h5_index
+    from scinspect.readers import _h5_columns, _h5_index
 
     arr = np.array([(b"AAAC-1", 3), (b"TTTG-1", 5)], dtype=[("index", "S6"), ("n_genes", "i8")])
     assert _h5_index(arr) == ["AAAC-1", "TTTG-1"]
@@ -77,7 +77,7 @@ def test_legacy_compound_index():
 
 
 def test_new_anndata_string_encodings():
-    from scpreflight.readers import _strings
+    from scinspect.readers import _strings
 
     nullable = {"values": np.array([b"AAAC-1", b"TTTG-1"]), "mask": np.array([False, False])}
     assert _strings(nullable) == ["AAAC-1", "TTTG-1"]
@@ -107,11 +107,11 @@ def test_h5ad_roundtrip(tmp_path, small):
     ad.raw = anndata.AnnData(X=C, obs=pd.DataFrame(index=bcs), var=pd.DataFrame(index=genes))
     p = tmp_path / "x.h5ad"
     ad.write_h5ad(p)
-    rep = scpreflight.check(p)
+    rep = scinspect.check(p)
     kinds = {m.slot: m.kind for m in rep.matrices}
     assert kinds == {"X": "log1p_normalized", "layers['counts']": "raw_counts", "raw.X": "raw_counts"}
     # the in-memory AnnData object gives the same answer
-    mem_kinds = {m.slot: m.kind for m in scpreflight.check(ad).matrices}
+    mem_kinds = {m.slot: m.kind for m in scinspect.check(ad).matrices}
     assert mem_kinds == kinds, f"in-memory={mem_kinds} file={kinds}"
 
 
@@ -122,7 +122,7 @@ def test_h5ad_dense_and_csc(tmp_path, small):
     ad.layers["lognorm"] = s.log1p(s.normalize_total(C)).tocsc()
     p = tmp_path / "dense.h5ad"
     ad.write_h5ad(p)
-    rep = scpreflight.check(p)
+    rep = scinspect.check(p)
     assert rep.matrix("X").kind == "raw_counts"
     assert rep.matrix("layers['lognorm']").kind == "log1p_normalized"
 
@@ -146,7 +146,7 @@ def test_10x_h5_multimodal(tmp_path, small):
         ft["name"] = np.array(names, dtype="S")
         ft["id"] = np.array([f"ID{i}" for i in range(520)], dtype="S")
         ft["feature_type"] = np.array(types, dtype="S")
-    rep = scpreflight.check(p)
+    rep = scinspect.check(p)
     assert rep.n_vars == 500
     assert {m.slot for m in rep.matrices} == {"X (Gene Expression)", "X (Antibody Capture)"}
     assert rep.matrix("X (Gene Expression)").kind == "raw_counts"
@@ -161,6 +161,6 @@ def test_loom(tmp_path, small):
         f.create_group("layers")["spliced"] = C.toarray().T
         f.create_group("row_attrs")["Gene"] = np.array(genes, dtype="S")
         f.create_group("col_attrs")["CellID"] = np.array(bcs, dtype="S")
-    rep = scpreflight.check(p)
+    rep = scinspect.check(p)
     assert (rep.n_obs, rep.n_vars) == (300, 500)
     assert rep.matrix("layers['spliced']").kind == "raw_counts"

@@ -1,4 +1,4 @@
-"""Data classes that hold the results of a preflight check."""
+"""Data classes that hold the results of a scinspect check."""
 
 from __future__ import annotations
 
@@ -45,7 +45,7 @@ class MatrixState:
 
 @dataclass
 class Report:
-    """Full preflight report for one dataset."""
+    """Full scinspect report for one dataset."""
 
     source: str
     fmt: str

@@ -1,8 +1,8 @@
 import numpy as np
 import simulate as s
 
-import scpreflight
-from scpreflight.features import analyze_features, is_excel_date
+import scinspect
+from scinspect.features import analyze_features, is_excel_date
 
 
 def codes(report):
@@ -12,7 +12,7 @@ def codes(report):
 def test_excel_dates_detected(counts, genes):
     g = list(genes)
     g[100:104] = ["1-Sep", "2-Mar", "1-Dec", "Sep-07"]
-    rep = scpreflight.check(s.make(counts, var_names=g))
+    rep = scinspect.check(s.make(counts, var_names=g))
     f = next(f for f in rep.findings if f.code == "features.excel_dates")
     assert f.level == "error"
     assert "SEPT" in f.detail and "MARCH" in f.detail
@@ -28,12 +28,12 @@ def test_excel_date_patterns():
 def test_duplicates(counts, genes):
     g = list(genes)
     g[200] = g[201] = "GENE5"
-    assert "features.duplicates" in codes(scpreflight.check(s.make(counts, var_names=g)))
+    assert "features.duplicates" in codes(scinspect.check(s.make(counts, var_names=g)))
 
 
 def test_mixed_species_barnyard(counts, genes):
     g = ["GRCh38_" + x for x in genes[:900]] + ["mm10___" + x.capitalize() for x in genes[900:]]
-    assert "features.mixed_species" in codes(scpreflight.check(s.make(counts, var_names=g)))
+    assert "features.mixed_species" in codes(scinspect.check(s.make(counts, var_names=g)))
 
 
 def test_single_genome_prefix():
@@ -80,15 +80,15 @@ def test_atac_peaks():
 
 def test_no_mito(counts):
     g = [x for x in s.gene_names(1600) if not x.startswith("MT-")][:1500]
-    assert "features.no_mito" in codes(scpreflight.check(s.make(counts, var_names=g)))
+    assert "features.no_mito" in codes(scinspect.check(s.make(counts, var_names=g)))
 
 
 def test_transposed_detected(counts, genes):
     rng = np.random.default_rng(1)
     ad = s.FakeAnnData(X=counts.T.tocsr(), obs_names=genes, var_names=s.barcodes(counts.shape[0], rng))
-    assert "layout.transposed" in codes(scpreflight.check(ad))
+    assert "layout.transposed" in codes(scinspect.check(ad))
 
 
 def test_duplicate_cell_names(counts, genes):
     obs = ["AAACCTGAGAAACCAT-1"] * 2 + s.barcodes(counts.shape[0] - 2, np.random.default_rng(2))
-    assert "cells.duplicate_names" in codes(scpreflight.check(s.make(counts, obs_names=obs)))
+    assert "cells.duplicate_names" in codes(scinspect.check(s.make(counts, obs_names=obs)))

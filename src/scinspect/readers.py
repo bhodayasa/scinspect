@@ -420,6 +420,6 @@ def read(path: str | os.PathLike) -> Dataset:
         raise ReaderError(
             "Seurat/R files cannot be read from Python. In R, export with "
             "SeuratDisk::SaveH5Seurat + Convert(..., dest='h5ad'), or write the counts with "
-            "DropletUtils::write10xCounts, then run scpreflight on the result."
+            "DropletUtils::write10xCounts, then run scinspect on the result."
         )
     raise ReaderError(f"unrecognized file type: {p.name}")

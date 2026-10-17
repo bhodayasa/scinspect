@@ -1,4 +1,4 @@
-# scpreflight
+# scinspect
 
 **Find out what is really inside a single-cell dataset before you analyze it.**
 
@@ -10,15 +10,15 @@ The file usually doesn't say, and guessing wrong fails **silently**: you log-tra
 scaled data to a differential-expression test, or give scVI normalized values. These questions come
 up again and again on the scverse forum, Biostars and GitHub issues.
 
-`scpreflight` answers them in one command:
+`scinspect` answers them in one command:
 
 ```bash
-pip install scpreflight
-scpreflight downloaded_atlas.h5ad
+pip install scinspect
+scinspect downloaded_atlas.h5ad
 ```
 
 ```
-scpreflight 0.1.0  downloaded_atlas.h5ad
+scinspect 0.1.0  downloaded_atlas.h5ad
 h5ad · 8,000 cells × 2,000 features · checked a random sample of 2,000 cells
 
 MATRICES
@@ -102,26 +102,26 @@ matrix really is a normalization of the counts matrix (same cells, same gene ord
 | 10x folder / `.mtx` | `matrix.mtx(.gz)` + `features.tsv`/`genes.tsv` + `barcodes.tsv`, including GEO `GSM123_` prefixes |
 | `.loom` | including layers (velocyto spliced/unspliced) |
 | `.csv`, `.tsv`, `.txt` (+ `.gz`) | genes × cells tables are detected and transposed |
-| AnnData object | `scpreflight.check(adata)` in Python |
+| AnnData object | `scinspect.check(adata)` in Python |
 
 Seurat `.rds` files cannot be read from Python; the error message explains how to export them.
 
 ## Usage
 
 ```bash
-scpreflight data.h5ad                  # readable report
-scpreflight data.h5ad --markdown       # paste into a lab notebook, README or PR
-scpreflight data.h5ad --json           # for scripts
-scpreflight *.h5ad --fail-on warn      # exit 1 on warnings: use in CI or pipelines
-scpreflight data.h5ad --sample 5000    # check more cells (default 2,000)
+scinspect data.h5ad                  # readable report
+scinspect data.h5ad --markdown       # paste into a lab notebook, README or PR
+scinspect data.h5ad --json           # for scripts
+scinspect *.h5ad --fail-on warn      # exit 1 on warnings: use in CI or pipelines
+scinspect data.h5ad --sample 5000    # check more cells (default 2,000)
 ```
 
 ```python
 import scanpy as sc
-import scpreflight
+import scinspect
 
 adata = sc.read_h5ad("data.h5ad")
-report = scpreflight.check(adata)
+report = scinspect.check(adata)
 print(report)                              # same text report
 report.matrix("X").kind                    # 'log1p_normalized'
 report.matrix("X").details["log_base"]     # 'e'
@@ -137,12 +137,12 @@ Most normalizations leave a fingerprint you can reverse. Scanpy's default is
 `x = ln(1 + counts × 10,000 / total)`. Applying `exp(x) − 1` gives `counts × c` for one constant
 `c` per cell. Divide by the cell's smallest non-zero value and you get integers back, and the cell
 sums equal exactly 10,000. A wrong log base gives non-integers, so the base can be identified.
-`scpreflight` runs these tests on a random sample of cells (2,000 by default), so even very large
+`scinspect` runs these tests on a random sample of cells (2,000 by default), so even very large
 files are checked in seconds.
 
 ## Related tools
 
-Some pieces of this exist; `scpreflight` puts them in one report that covers every matrix in a
+Some pieces of this exist; `scinspect` puts them in one report that covers every matrix in a
 file plus gene and layout problems.
 
 - [stancounts](https://pypi.org/project/stancounts/) detects log1p and its base for one matrix and recovers counts.
@@ -150,12 +150,12 @@ file plus gene and layout problems.
 - [hca-validation-tools](https://github.com/clevercanary/hca-validation-tools) has an internal raw-vs-normalized check for HCA atlas curation.
 - [Truke](https://pmc.ncbi.nlm.nih.gov/articles/PMC5359807/) and [Escape Excel](https://github.com/pstew/escape_excel) handle Excel gene-name damage.
 
-If you need the counts back, use `scpreflight` to find out whether they are recoverable, then one of
+If you need the counts back, use `scinspect` to find out whether they are recoverable, then one of
 the recovery tools above.
 
 ## Tested on
 
-Besides 71 unit tests on simulated pipelines, `scpreflight` was run on the real test files that ship
+Besides 71 unit tests on simulated pipelines, `scinspect` was run on the real test files that ship
 with Scanpy and AnnData:
 
 - 10x Genomics Cell Ranger v2 and v3 `.h5` files and `.mtx` folders, including a multi-genome file
