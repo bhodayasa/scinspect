@@ -28,8 +28,8 @@ test = ["pytest>=7", "anndata>=0.8"]
 scinspect = "scinspect.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/bhodayasa/scpreflight"
-Issues = "https://github.com/bhodayasa/scpreflight/issues"
+Homepage = "https://github.com/bhodayasa/scinspect"
+Issues = "https://github.com/bhodayasa/scinspect/issues"
 
 [tool.setuptools.dynamic]
 version = { attr = "scinspect.__version__" }
