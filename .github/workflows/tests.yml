@@ -26,6 +26,10 @@ jobs:
         run: python -m pip install -e ".[test]"
       - name: Show versions
         run: python -c "import sys, numpy, scipy, pandas, h5py, anndata; print(sys.version); print('numpy', numpy.__version__, 'scipy', scipy.__version__, 'pandas', pandas.__version__, 'h5py', h5py.__version__, 'anndata', anndata.__version__)"
+      - name: Diagnose h5ad
+        if: matrix.python-version == '3.13'
+        continue-on-error: true
+        run: python ci/diag.py
       - name: Test
         shell: bash
         run: |
