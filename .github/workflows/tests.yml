@@ -30,11 +30,11 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          python -m pytest -v -rfE --tb=line 2>&1 | tee pytest.log
-          status=${PIPESTATUS[0]}
+          status=0
+          python -m pytest -v -rfE --tb=line 2>&1 | tee pytest.log || status=$?
           if [ "$status" != "0" ]; then
             # Surface failures as annotations so they are visible without opening the log
-            grep -E "^(FAILED|ERROR) |^[^ ].*:[0-9]+: " pytest.log | head -40 | while IFS= read -r line; do
+            grep -E "^(FAILED|ERROR) |^[^ ].*:[0-9]+: |Error|passed|failed" pytest.log | tail -40 | while IFS= read -r line; do
               echo "::error::${line//$'\r'/}"
             done
           fi
