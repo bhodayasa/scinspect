@@ -76,6 +76,15 @@ def test_legacy_compound_index():
     assert _h5_columns(arr) == ["n_genes"]
 
 
+def test_new_anndata_string_encodings():
+    from scpreflight.readers import _strings
+
+    nullable = {"values": np.array([b"AAAC-1", b"TTTG-1"]), "mask": np.array([False, False])}
+    assert _strings(nullable) == ["AAAC-1", "TTTG-1"]
+    categorical = {"codes": np.array([1, 0, 1]), "categories": np.array([b"CD3E", b"LYZ"])}
+    assert _strings(categorical) == ["LYZ", "CD3E", "LYZ"]
+
+
 def test_missing_file():
     with pytest.raises(ReaderError):
         read("does/not/exist.h5ad")

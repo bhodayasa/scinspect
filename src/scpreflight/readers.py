@@ -63,10 +63,25 @@ def _require_h5py():
     return h5py
 
 
-def _strings(ds: Any) -> list[str]:
-    arr = ds[()] if hasattr(ds, "shape") else ds
-    arr = np.asarray(arr).ravel()
-    return [x.decode() if isinstance(x, bytes) else str(x) for x in arr]
+def _decode(arr: Any) -> list[str]:
+    return [x.decode() if isinstance(x, bytes) else str(x) for x in np.asarray(arr).ravel()]
+
+
+def _strings(elem: Any) -> list[str]:
+    """Read a string array stored by AnnData: plain dataset, nullable string, or categorical."""
+    if hasattr(elem, "shape"):  # plain HDF5 dataset (or numpy array)
+        return _decode(elem[()])
+    keys = set(elem.keys()) if hasattr(elem, "keys") else set()
+    if "values" in keys:  # anndata >= 0.11 "nullable-string-array" (pandas string dtype)
+        vals = _decode(elem["values"][()])
+        if "mask" in keys:
+            mask = np.asarray(elem["mask"][()]).ravel().astype(bool)
+            vals = ["" if m else v for v, m in zip(vals, mask)]
+        return vals
+    if {"codes", "categories"} <= keys:  # categorical
+        cats = _decode(elem["categories"][()])
+        return ["" if c < 0 else cats[c] for c in np.asarray(elem["codes"][()]).ravel()]
+    raise ReaderError(f"unrecognized string encoding (keys: {sorted(keys)})")
 
 
 class H5CSR:
@@ -212,6 +227,12 @@ def read_h5ad(path: str | os.PathLike) -> Dataset:
     obs_len = int(obs_shape[0]) if obs_shape else n_obs
     obs_names = _names_or_placeholder(f["obs"], obs_len or n_obs or 0, "cell", notes)
     var_names = _names_or_placeholder(f["var"], n_vars or 0, "gene", notes)
+    if n_obs is not None and len(obs_names) != n_obs:
+        notes.append(f"Cell names ({len(obs_names):,}) do not match the matrix ({n_obs:,} rows); using placeholders.")
+        obs_names = [f"cell_{i}" for i in range(n_obs)]
+    if n_vars is not None and len(var_names) != n_vars:
+        notes.append(f"Gene names ({len(var_names):,}) do not match the matrix ({n_vars:,} columns); using placeholders.")
+        var_names = [f"gene_{i}" for i in range(n_vars)]
     if raw_x is not None:
         add("raw.X", raw_x)
         if slots and slots[-1].name == "raw.X" and raw_var_elem is not None:
