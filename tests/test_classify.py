@@ -99,10 +99,27 @@ def test_fractional_counts(counts):
     assert state(F).kind == "fractional_counts"
 
 
-def test_binary(counts):
+def test_binary_peaks(counts):
     B = counts.copy()
     B.data[:] = 1
-    assert state(B).kind == "binary"
+    peaks = [f"chr1:{i * 1000}-{i * 1000 + 500}" for i in range(counts.shape[1])]
+    assert state(B, var_names=peaks).kind == "binary"
+
+
+def test_all_ones_on_genes_is_shallow_counts(counts):
+    B = counts.copy()
+    B.data[:] = 1
+    rep = scpreflight.check(s.make(B))
+    assert rep.matrix("X").kind == "raw_counts"
+    assert "slots.no_counts" not in {f.code for f in rep.all_findings()}
+
+
+def test_too_few_cells_is_low_confidence():
+    rng = np.random.default_rng(0)
+    X = sp.random(10, 20, density=0.2, format="csr", random_state=0)
+    X.data = rng.random(X.data.size)
+    st = state(X, var_names=s.gene_names(20))
+    assert st.confidence == "low"
 
 
 def test_random_continuous_is_not_called_lognormalized():
@@ -120,3 +137,28 @@ def test_float64_and_dense_input(counts):
 def test_all_zero():
     st = state(sp.csr_matrix((50, 40)), var_names=s.gene_names(40))
     assert st.kind == "all_zero"
+
+
+def test_nan_is_flagged(counts):
+    L = s.log1p(s.normalize_total(counts)).toarray()
+    L[0, 0] = np.nan
+    st = state(L)
+    assert st.kind == "log1p_normalized"
+    assert any(f.code == "matrix.nonfinite" for f in st.findings)
+
+
+def test_rounded_storage_still_detected(counts):
+    L = np.round(s.log1p(s.normalize_total(counts)).toarray(), 3)
+    st = state(sp.csr_matrix(L))
+    assert st.kind == "log1p_normalized"
+    assert st.details["stored_decimals"] == 3
+
+
+def test_integer_dtypes(counts):
+    assert state(sp.csr_matrix(counts, dtype=np.int32)).kind == "raw_counts"
+    assert state(counts.toarray().astype(np.uint16)).kind == "raw_counts"
+
+
+def test_float16_storage(counts):
+    st = state(s.log1p(s.normalize_total(counts)).toarray().astype(np.float16))
+    assert st.kind == "log1p_normalized"

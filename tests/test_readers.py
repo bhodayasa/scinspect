@@ -68,6 +68,14 @@ def test_h5csr_row_access(small):
     assert (lazy[idx] - C[idx]).nnz == 0
 
 
+def test_legacy_compound_index():
+    from scpreflight.readers import _h5_columns, _h5_index
+
+    arr = np.array([(b"AAAC-1", 3), (b"TTTG-1", 5)], dtype=[("index", "S6"), ("n_genes", "i8")])
+    assert _h5_index(arr) == ["AAAC-1", "TTTG-1"]
+    assert _h5_columns(arr) == ["n_genes"]
+
+
 def test_missing_file():
     with pytest.raises(ReaderError):
         read("does/not/exist.h5ad")

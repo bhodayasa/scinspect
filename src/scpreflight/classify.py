@@ -68,9 +68,32 @@ _NICE_TARGETS = [
 # ---------------------------------------------------------------------------
 # fingerprint tests
 # ---------------------------------------------------------------------------
-def ratio_test(sample: sp.csr_matrix, inverse: Callable[[np.ndarray], np.ndarray]) -> dict[str, Any]:
+# d(inverse)/dx relative factor per transform, used to turn storage rounding into a tolerance
+_LOG_SLOPE = {"e": 1.0, "2": _LN2, "10": _LN10, "linear": None, "e_twice": 2.0}
+
+
+def storage_quantum(vals: np.ndarray) -> float:
+    """Detect values saved with limited decimals (e.g. rounded to 0.001). Returns the step, or 0."""
+    v = np.asarray(vals[:20000], dtype=np.float64)
+    if v.size == 0:
+        return 0.0
+    for k in range(1, 7):
+        step = 10.0**-k
+        if np.all(np.abs(v / step - np.round(v / step)) < 1e-3):
+            return step
+    return 0.0
+
+
+def ratio_test(
+    sample: sp.csr_matrix,
+    inverse: Callable[[np.ndarray], np.ndarray],
+    quantum: float = 0.0,
+    slope: float | None = 1.0,
+) -> dict[str, Any]:
     """Undo a transform and check whether each cell becomes integer multiples of its minimum.
 
+    ``quantum`` is the rounding step of the stored values (0 if stored at full precision); the
+    tolerance widens to match, so datasets saved with 3 decimals are still recognized.
     Returns the fraction of informative cells that pass, plus per-cell scale info.
     """
     indptr, data = sample.indptr, sample.data
@@ -95,14 +118,22 @@ def ratio_test(sample: sp.csr_matrix, inverse: Callable[[np.ndarray], np.ndarray
             m = pos.min()
             mins[i] = m
             r = pos / m
+            # relative error of each ratio caused by rounding of the stored values
+            if quantum:
+                rel = quantum * (slope * (1 + 1 / m) if slope else 2 / m)
+            else:
+                rel = 0.0
             informative = r[(r > 1.5) & (r <= 400)]
             if informative.size < 3:
                 continue
             considered += 1
             for k in (1, 2, 3, 4):
                 rk = informative * k
-                tol = 0.02 + 2e-5 * rk
-                if np.mean(np.abs(rk - np.round(rk)) <= tol) >= 0.98:
+                tol = 0.02 + 2e-5 * rk + rk * rel
+                usable = tol <= 0.3  # beyond this, rounding hides whether a value is an integer
+                if usable.sum() < 3:
+                    break
+                if np.mean(np.abs(rk - np.round(rk))[usable] <= tol[usable]) >= 0.98:
                     passed += 1
                     mult[i] = k
                     break
@@ -165,6 +196,25 @@ def classify_matrix(
         )
         return st, S, idx
 
+    bad = ~np.isfinite(vals)
+    nonfinite = None
+    if bad.any():
+        nonfinite = Finding(
+            "error",
+            "matrix.nonfinite",
+            f"{slot} contains NaN or infinite values",
+            f"{int(bad.sum()):,} non-finite values in the sampled cells.",
+            "Most tools crash or give silent garbage on NaN. Find where they came from (often a "
+            "division by zero during normalization) before analysis.",
+        )
+        S = S.copy()
+        S.data[bad] = 0
+        S.eliminate_zeros()
+        vals = S.data
+        if vals.size == 0:
+            st = MatrixState(slot, shape, dtype, "all_zero", KINDS["all_zero"], "high", details)
+            st.findings.append(nonfinite)
+            return st, S, idx
     n_total = S.shape[0] * S.shape[1]
     vmin, vmax = float(vals.min()), float(vals.max())
     frac_int = float(np.mean(np.abs(vals - np.round(vals)) <= 1e-3))
@@ -177,13 +227,12 @@ def classify_matrix(
 
     if vmin < 0:
         st = _classify_signed(S, slot, shape, dtype, details, vmax, rng, n_genes_dense)
-        return st, S, idx
-
-    if frac_int >= 0.999:
+    elif frac_int >= 0.999:
         st = _classify_integer(S, slot, shape, dtype, details, vmax)
-        return st, S, idx
-
-    st = _classify_continuous(S, slot, shape, dtype, details, vmax)
+    else:
+        st = _classify_continuous(S, slot, shape, dtype, details, vmax)
+    if nonfinite is not None:
+        st.findings.insert(0, nonfinite)
     return st, S, idx
 
 
@@ -258,7 +307,13 @@ def _classify_integer(S, slot, shape, dtype, details, vmax) -> MatrixState:
 
 
 def _classify_continuous(S, slot, shape, dtype, details, vmax) -> MatrixState:
-    results = {name: ratio_test(S, inv) for name, inv in INVERSES.items()}
+    q = storage_quantum(S.data)
+    if "float16" in dtype:  # half precision keeps ~3 significant digits
+        q = max(q, float(np.max(S.data)) * 2.0**-11)
+        details["note"] = "stored as float16 (half precision), so values are rounded"
+    elif q:
+        details["stored_decimals"] = int(round(-math.log10(q)))
+    results = {name: ratio_test(S, inv, q, _LOG_SLOPE[name]) for name, inv in INVERSES.items()}
     scores = {k: round(v["score"], 3) for k, v in results.items()}
     details["fingerprint_scores"] = scores
     best = max(results, key=lambda k: results[k]["score"])
@@ -267,7 +322,19 @@ def _classify_continuous(S, slot, shape, dtype, details, vmax) -> MatrixState:
     if best_res["score"] >= 0.9 and best_res["considered"] >= 10:
         return _from_fingerprint(S, slot, shape, dtype, details, best, best_res)
 
-    # No exact fingerprint. Fall back to sums / magnitude heuristics.
+    # No exact fingerprint. Fall back to sums / magnitude heuristics, which need enough cells.
+    n_nonempty = int(np.sum(np.diff(S.indptr) > 0))
+    if n_nonempty < 20:
+        st = MatrixState(slot, shape, dtype, "log_unknown", KINDS["log_unknown"], "low", details)
+        st.findings.append(
+            Finding(
+                "info",
+                "matrix.too_few_cells",
+                f"Too few non-empty cells in {slot} to identify its normalization",
+                f"Only {n_nonempty} sampled cells have any non-zero values.",
+            )
+        )
+        return st
     for base in ("e", "2", "10"):
         sums = results[base]["sums"]
         if _cv(sums) < 0.01:

@@ -19,25 +19,16 @@ PROCESSED_KINDS = {"log1p_normalized", "normalized_linear", "log1p_counts"}
 def check_droplets(state: MatrixState, sample: sp.csr_matrix | None, n_obs: int) -> list[Finding]:
     if state.kind != "raw_counts" or sample is None:
         return []
+    if n_obs in WHITELIST_SIZES:
+        return [_unfiltered(state, f"{n_obs:,} barcodes is exactly the {WHITELIST_SIZES[n_obs]} whitelist size")]
+    if sample.shape[1] < 5000:
+        # Gene panels, subsets and protein matrices have naturally low totals; depth cutoffs don't apply.
+        return []
     totals = np.asarray(sample.sum(axis=1)).ravel()
     frac_tiny = float(np.mean(totals < 100))
     state.details["fraction_cells_under_100_counts"] = round(frac_tiny, 4)
-    if n_obs in WHITELIST_SIZES or (n_obs > 50_000 and frac_tiny > 0.5):
-        why = (
-            f"{n_obs:,} barcodes is exactly the {WHITELIST_SIZES[n_obs]} whitelist size"
-            if n_obs in WHITELIST_SIZES
-            else f"{frac_tiny:.0%} of sampled barcodes have fewer than 100 counts"
-        )
-        return [
-            Finding(
-                "error",
-                "cells.unfiltered_droplets",
-                f"{state.slot} looks like an UNFILTERED droplet matrix (mostly empty droplets)",
-                why,
-                "Use the filtered matrix (filtered_feature_bc_matrix) or call cells first "
-                "(EmptyDrops, CellBender, or a knee-plot cutoff).",
-            )
-        ]
+    if n_obs > 50_000 and frac_tiny > 0.5:
+        return [_unfiltered(state, f"{frac_tiny:.0%} of sampled barcodes have fewer than 100 counts")]
     if frac_tiny > 0.2:
         return [
             Finding(
@@ -49,6 +40,17 @@ def check_droplets(state: MatrixState, sample: sp.csr_matrix | None, n_obs: int)
             )
         ]
     return []
+
+
+def _unfiltered(state: MatrixState, why: str) -> Finding:
+    return Finding(
+        "error",
+        "cells.unfiltered_droplets",
+        f"{state.slot} looks like an UNFILTERED droplet matrix (mostly empty droplets)",
+        why,
+        "Use the filtered matrix (filtered_feature_bc_matrix) or call cells first "
+        "(EmptyDrops, CellBender, or a knee-plot cutoff).",
+    )
 
 
 def check_slot_names(states: Sequence[MatrixState]) -> list[Finding]:

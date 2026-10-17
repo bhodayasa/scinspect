@@ -82,6 +82,19 @@ def _check_dataset(ds: Dataset, sample_cells: int, seed: int) -> Report:
     report.features = summary
     report.findings.extend(ffind)
     report.findings.extend(analyze_layout(ds.obs_names, ds.var_names))
+    if summary.get("feature_type") != "genomic regions (peaks)":
+        for st in report.matrices:
+            if st.kind == "binary":
+                st.kind, st.label = "raw_counts", "Raw counts (non-negative integers) — every value is 0 or 1"
+                st.findings = [
+                    Finding(
+                        "info",
+                        "matrix.binary_counts",
+                        f"Every non-zero value in {st.slot} is 1",
+                        "Either very shallow sequencing (common in small test files) or a binarized matrix.",
+                        "If it was binarized on purpose, it is not suitable as counts for scVI or DE.",
+                    )
+                ]
     report.findings.extend(check_slot_names(report.matrices))
 
     # is each processed matrix really derived from the counts?

@@ -20,12 +20,25 @@ def test_typical_scanpy_object_is_clean(counts):
     assert tasks["sc.pp.normalize_total + sc.pp.log1p"]["status"] == "skip"
 
 
-def test_unfiltered_droplets(counts):
-    rng = np.random.default_rng(0)
-    empty = sp.csr_matrix(rng.poisson(0.002, (60000, counts.shape[1])).astype(np.float32))
-    rep = scpreflight.check(s.make(sp.vstack([counts, empty]).tocsr()))
+def test_unfiltered_droplets():
+    cells = s.counts(800, 6000)
+    empty = sp.random(60000, 6000, density=0.0005, format="csr", random_state=1, dtype=np.float32)
+    empty.data[:] = 1
+    rep = scpreflight.check(s.make(sp.vstack([cells, empty]).tocsr(), var_names=s.gene_names(6000)))
     assert "cells.unfiltered_droplets" in codes(rep)
     assert rep.worst_level == "error"
+
+
+def test_low_counts_not_flagged_for_small_gene_panels():
+    # a 500-gene subset of real cells naturally has low totals; that is not a QC problem
+    rep = scpreflight.check(s.make(s.counts(300, 500, depth=150), var_names=s.gene_names(500)))
+    assert not {"cells.many_low_count", "cells.unfiltered_droplets"} & codes(rep)
+
+
+def test_many_low_count_cells_whole_transcriptome():
+    cells = s.counts(400, 6000, depth=60)
+    rep = scpreflight.check(s.make(cells, var_names=s.gene_names(6000)))
+    assert "cells.many_low_count" in codes(rep)
 
 
 def test_counts_layer_that_is_not_counts(counts):

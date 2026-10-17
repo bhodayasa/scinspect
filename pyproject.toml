@@ -1,14 +1,13 @@
 [build-system]
-requires = ["hatchling>=1.27"]
-build-backend = "hatchling.build"
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "scpreflight"
 dynamic = ["version"]
 description = "Find out what is really inside a single-cell dataset (raw counts or normalized, log base, scaled, gene ID problems) before you analyze it."
 readme = "README.md"
-license = "MIT"
-license-files = ["LICENSE"]
+license = { text = "MIT" }
 requires-python = ">=3.9"
 authors = [{ name = "Yash Bhida" }]
 keywords = ["single-cell", "scRNA-seq", "anndata", "scanpy", "quality control", "bioinformatics", "normalization"]
@@ -32,11 +31,11 @@ scpreflight = "scpreflight.cli:main"
 Homepage = "https://github.com/YOUR-USERNAME/scpreflight"
 Issues = "https://github.com/YOUR-USERNAME/scpreflight/issues"
 
-[tool.hatch.version]
-path = "src/scpreflight/__init__.py"
+[tool.setuptools.dynamic]
+version = { attr = "scpreflight.__version__" }
 
-[tool.hatch.build.targets.wheel]
-packages = ["src/scpreflight"]
+[tool.setuptools.packages.find]
+where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

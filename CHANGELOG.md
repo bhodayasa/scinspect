@@ -15,3 +15,5 @@ First release.
 - Per-tool advice (scVI, pseudobulk DE, seurat_v3 HVG, PCA, marker genes, CellTypist).
 - Reads .h5ad (lazily), 10x .h5, 10x folders / .mtx, .loom, CSV/TSV and AnnData objects.
 - Text, Markdown and JSON output; CI-friendly exit codes.
+- Handles values saved with rounded decimals or float16, NaN/inf values, AnnData < 0.7 file layouts,
+  and unreadable slots (reported, not fatal).

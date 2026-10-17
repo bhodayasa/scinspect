@@ -125,11 +125,37 @@ def _h5_matrix(elem: Any) -> Any:
     raise ReaderError(f"unsupported matrix encoding {enc!r}")
 
 
-def _h5_index(group: Any) -> list[str]:
-    key = group.attrs.get("_index", "_index")
-    if isinstance(key, bytes):
-        key = key.decode()
-    return _strings(group[key])
+def _attr_str(attrs: Any, key: str, default: str = "") -> str:
+    v = attrs.get(key, default)
+    if isinstance(v, bytes):
+        v = v.decode()
+    return str(v)
+
+
+def _h5_index(elem: Any) -> list[str]:
+    """Row names of an AnnData dataframe: a group (anndata >= 0.7) or a compound dataset (older)."""
+    names = getattr(getattr(elem, "dtype", None), "names", None)
+    if names:  # anndata < 0.7: structured array with an 'index' field
+        arr = elem[()]
+        field = "index" if "index" in names else names[0]
+        return [x.decode() if isinstance(x, bytes) else str(x) for x in arr[field]]
+    return _strings(elem[_attr_str(elem.attrs, "_index", "_index")])
+
+
+def _h5_columns(elem: Any) -> list[str]:
+    names = getattr(getattr(elem, "dtype", None), "names", None)
+    if names:
+        return [n for n in names if n != "index"]
+    skip = {"_index", "__categories", _attr_str(elem.attrs, "_index", "_index")}
+    return [k for k in elem.keys() if k not in skip]
+
+
+def _names_or_placeholder(elem: Any, n: int, what: str, notes: list[str]) -> list[str]:
+    try:
+        return _h5_index(elem)
+    except Exception as e:  # keep checking the numbers even if names are unreadable
+        notes.append(f"Could not read {what} names ({type(e).__name__}); using placeholders.")
+        return [f"{what}_{i}" for i in range(n)]
 
 
 # ---------------------------------------------------------------------------
@@ -158,23 +184,40 @@ def from_anndata(adata: Any, source: str = "<AnnData object>") -> Dataset:
 def read_h5ad(path: str | os.PathLike) -> Dataset:
     h5py = _require_h5py()
     f = h5py.File(path, "r")
-    try:
-        obs_names = _h5_index(f["obs"])
-        var_names = _h5_index(f["var"])
-    except Exception:
+    if "obs" not in f or "var" not in f:
         f.close()
         return _read_h5ad_with_anndata(path)
+    notes: list[str] = []
     slots: list[Slot] = []
+
+    def add(name: str, elem: Any, var: list[str] | None = None) -> None:
+        try:
+            slots.append(Slot(name, _h5_matrix(elem), var))
+        except Exception as e:  # e.g. a compression filter this h5py build lacks
+            notes.append(f"Skipped {name}: could not read it ({type(e).__name__}: {e}).")
+
     if "X" in f:
-        slots.append(Slot("X", _h5_matrix(f["X"])))
+        add("X", f["X"])
     if "layers" in f:
         for k in f["layers"].keys():
-            slots.append(Slot(f"layers['{k}']", _h5_matrix(f["layers"][k])))
-    if "raw" in f and "X" in f["raw"]:
-        raw_var = _h5_index(f["raw"]["var"]) if "var" in f["raw"] else None
-        slots.append(Slot("raw.X", _h5_matrix(f["raw"]["X"]), raw_var))
-    var_cols = [k for k in f["var"].keys() if k not in ("_index", "__categories", f["var"].attrs.get("_index", ""))]
-    return Dataset(str(path), "h5ad", obs_names, var_names, slots, var_cols, _handles=[f])
+            add(f"layers['{k}']", f["layers"][k])
+    raw_x = f["raw"]["X"] if "raw" in f and "X" in f["raw"] else f["raw.X"] if "raw.X" in f else None
+    raw_var_elem = (f["raw"]["var"] if "raw" in f and "var" in f["raw"] else f["raw.var"] if "raw.var" in f else None)
+
+    n_obs = n_vars = None
+    for sl in slots:
+        n_obs, n_vars = matrix_shape(sl.matrix)
+        break
+    obs_shape = getattr(f["obs"], "shape", None)
+    obs_len = int(obs_shape[0]) if obs_shape else n_obs
+    obs_names = _names_or_placeholder(f["obs"], obs_len or n_obs or 0, "cell", notes)
+    var_names = _names_or_placeholder(f["var"], n_vars or 0, "gene", notes)
+    if raw_x is not None:
+        add("raw.X", raw_x)
+        if slots and slots[-1].name == "raw.X" and raw_var_elem is not None:
+            n_raw = matrix_shape(slots[-1].matrix)[1]
+            slots[-1].var_names = _names_or_placeholder(raw_var_elem, n_raw, "raw gene", notes)
+    return Dataset(str(path), "h5ad", obs_names, var_names, slots, _h5_columns(f["var"]), notes, [f])
 
 
 def _read_h5ad_with_anndata(path) -> Dataset:  # pragma: no cover - legacy files
@@ -227,7 +270,9 @@ def read_10x_h5(path: str | os.PathLike) -> Dataset:
                 continue
             cols = np.flatnonzero(ftypes_arr == t)
             slots.append(Slot(f"X ({t})", ColumnSubset(full, cols), [names[i] for i in cols]))
-    if ids:
+    from .features import ENSEMBL_RE
+
+    if ids and sum(bool(ENSEMBL_RE.match(i)) for i in ids[:200]) > 0.5 * min(len(ids), 200):
         notes.append(f"Ensembl IDs are also stored in the file (e.g. {ids[0]}).")
     return Dataset(str(path), fmt, barcodes, var_names, slots, ["gene_ids"], notes, [f])
 

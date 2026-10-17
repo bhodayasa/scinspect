@@ -153,12 +153,23 @@ file plus gene and layout problems.
 If you need the counts back, use `scpreflight` to find out whether they are recoverable, then one of
 the recovery tools above.
 
+## Tested on
+
+Besides 69 unit tests on simulated pipelines, `scpreflight` was run on the real test files that ship
+with Scanpy and AnnData:
+
+- 10x Genomics Cell Ranger v2 and v3 `.h5` files and `.mtx` folders, including a multi-genome file
+- 10x Visium spatial `.h5` files (v1.0 and v2.1 probe-based)
+- `.h5ad` files written by AnnData 0.5, 0.7, 0.11 and 0.13, including the reduced PBMC 68k dataset,
+  where it correctly finds scaled `X` and ln(1+x) normalized `raw.X` stored with 3 decimals
+
 ## Limitations
 
 - It infers state from the numbers; it cannot know your methods section. Check `confidence`.
 - SCTransform-corrected counts are integers and are reported as raw counts.
 - Species from gene symbols is a guess from capitalization (ALL CAPS vs Capitalized).
 - Seurat `.rds` is not read directly.
+- Files compressed with uncommon HDF5 filters are skipped slot by slot, with a note, rather than failing.
 
 ## Contributing
 
