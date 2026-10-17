@@ -1,6 +1,6 @@
-"""Run the INSTALLED scinspect command on sample + real files and check the answers.
+"""Run the installed scinspect command on sample and real files.
 
-usage: python ci/smoke.py PATH_TO_SCINSPECT_EXE SAMPLES_DIR [REAL_DATA_DIR]
+usage: python ci/smoke.py SCINSPECT_EXE SAMPLES_DIR [REAL_DATA_DIR]
 """
 
 import json
@@ -73,4 +73,4 @@ if failures:
     for f in failures:
         print(f"::error::{f}")
     sys.exit(1)
-print("ALL SMOKE CHECKS PASSED")
+print("all checks passed")

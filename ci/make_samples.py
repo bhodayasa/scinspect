@@ -1,4 +1,4 @@
-"""Write realistic sample files (h5ad, 10x folder, 10x h5, CSV) for the install smoke test."""
+"""Write sample files for the install test."""
 
 import gzip
 import sys
@@ -21,12 +21,12 @@ genes = s.gene_names(3000)
 bcs = s.barcodes(1500, rng)
 L = s.log1p(s.normalize_total(C))
 
-# 1. typical Scanpy object: log-normalized X, counts layer, scaled-free
+# 1. log-normalized X with a counts layer
 ad = anndata.AnnData(X=L, obs=pd.DataFrame(index=bcs), var=pd.DataFrame(index=genes))
 ad.layers["counts"] = C
 ad.write_h5ad(out / "scanpy_style.h5ad")
 
-# 2. "atlas" style: scaled X, log-normalized raw, Excel-damaged genes
+# 2. scaled X, log-normalized raw, two Excel-damaged gene names
 g2 = list(genes)
 g2[500], g2[501] = "1-Mar", "2-Sep"
 ad2 = anndata.AnnData(X=s.scale(L), obs=pd.DataFrame(index=bcs), var=pd.DataFrame(index=g2))

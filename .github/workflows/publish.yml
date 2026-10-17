@@ -1,9 +1,5 @@
 name: publish
 
-# Publishes to PyPI when the `release` branch is pushed (or when run by hand from the Actions tab).
-# Uses PyPI "trusted publishing", so no password or token is stored anywhere.
-# After publishing it tags the release (vX.Y.Z), creates a GitHub release, and installs the
-# package back from PyPI on Linux, macOS and Windows to check it works.
 on:
   push:
     branches: [release]
@@ -61,7 +57,6 @@ jobs:
           gh release view "v$V" >/dev/null 2>&1 || gh release create "v$V" dist/* --target "$GITHUB_SHA" --title "scinspect $V" --notes "Install with: pip install scinspect==$V"
 
   verify:
-    # Install the just-published release from PyPI on a clean machine and run it.
     needs: [build, publish]
     runs-on: ${{ matrix.os }}
     strategy:
@@ -73,14 +68,14 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-      - name: Install from PyPI (retry while the release propagates)
+      - name: Install from PyPI
         shell: bash
         env:
           V: ${{ needs.build.outputs.version }}
         run: |
           for i in 1 2 3 4 5 6 7 8 9 10; do
             python -m pip install --no-cache-dir "scinspect==$V" && break
-            echo "not available yet, retrying in 30s"; sleep 30
+            sleep 30
           done
           scinspect --version | grep -q "scinspect $V"
       - name: Run on sample and real files

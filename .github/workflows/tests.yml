@@ -33,7 +33,6 @@ jobs:
           status=0
           python -m pytest -v -rfE --tb=line 2>&1 | tee pytest.log || status=$?
           if [ "$status" != "0" ]; then
-            # Surface failures as annotations so they are visible without opening the log
             grep -E "^(FAILED|ERROR) |^[^ ].*:[0-9]+: |Error|passed|failed" pytest.log | tail -40 | while IFS= read -r line; do
               echo "::error::${line//$'\r'/}"
             done
@@ -41,8 +40,6 @@ jobs:
           exit $status
 
   package:
-    # Build the real package, install it into a clean environment, and run the command on
-    # sample files plus real 10x / Visium / h5ad files from the Scanpy and AnnData repos.
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
