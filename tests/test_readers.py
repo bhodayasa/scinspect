@@ -111,7 +111,10 @@ def test_h5ad_roundtrip(tmp_path, small):
     kinds = {m.slot: m.kind for m in rep.matrices}
     assert kinds == {"X": "log1p_normalized", "layers['counts']": "raw_counts", "raw.X": "raw_counts"}
     # the in-memory AnnData object gives the same answer
-    assert {m.slot: m.kind for m in scpreflight.check(ad).matrices} == kinds
+    mem = {m.slot: (m.kind, type(m).__name__) for m in scpreflight.check(ad).matrices}
+    mem_kinds = {k: v[0] for k, v in mem.items()}
+    detail = {k: (type(getattr(ad, "X")).__name__, ad.raw is not None) for k in ["X"]}
+    assert mem_kinds == kinds, f"in-memory={mem_kinds} file={kinds} types={detail}"
 
 
 def test_h5ad_dense_and_csc(tmp_path, small):
